@@ -6,10 +6,17 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stealjs/steal-sass.git"
+  },
   "author": "Bitovi",
   "license": "MIT",
   "dependencies": {
     "sass.js": "^0.9.0"
+  },
+  "bugs": {
+    "url": "https://github.com/stealjs/steal-sass/issues"
   },
   "system": {
     "ext": {
@@ -18,5 +25,6 @@
   },
   "devDependencies": {
     "steal": "^0.10.5"
-  }
+  },
+  "homepage": "https://github.com/stealjs/steal-sass"
 }

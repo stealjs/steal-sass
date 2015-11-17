@@ -40,6 +40,11 @@
         "map": {
           "$sass.js": "nodesass"
         }
+      },
+      "server-production": {
+        "map": {
+          "$sass.js": "nodesass"
+        }
       }
     }
   },

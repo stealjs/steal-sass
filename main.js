@@ -1,5 +1,8 @@
-var Sass = require ("sass.js/dist/sass");
+var Sass = require ("$sass.js");
 var css = require("$css");
+var loader = require("@loader");
+var isNode = typeof process === "object" && {}.toString.call(process) ===
+    "[object process]";
 
 exports.instantiate = css.instantiate;
 exports.buildType = "css";
@@ -9,7 +12,10 @@ exports.translate = function(load){
   var imports = getImports(load.source);
 
   return getSass(this).then(function(sass){
-    return preload(sass, base, imports);
+    if(!isNode) {
+      return preload(sass, base, imports);
+    }
+    return sass;
   }).then(function(sass){
     return new Promise(function(resolve){
       sass.compile(load.source, function(result){
@@ -45,6 +51,12 @@ function preload(sass, base, files){
 }
 
 var getSass = (function(){
+  if(isNode) {
+    return function(loader){
+      return Promise.resolve(Sass);
+    };
+  }
+
   return function(loader){
     var np = Promise.resolve(loader.normalize("sass.js/dist/sass.worker", "steal-sass"));
     return np.then(function(name){

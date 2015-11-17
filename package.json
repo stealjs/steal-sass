@@ -13,7 +13,7 @@
   "author": "Bitovi",
   "license": "MIT",
   "dependencies": {
-    "sass.js": "^0.9.0"
+    "sass.js": "^0.9.4"
   },
   "bugs": {
     "url": "https://github.com/stealjs/steal-sass/issues"
@@ -21,10 +21,31 @@
   "system": {
     "ext": {
       "scss": "steal-sass"
+    },
+    "map": {
+      "./$sass.js": "sass.js/dist/sass"
+    },
+    "envs": {
+      "build": {
+        "map": {
+          "$sass.js": "nodesass"
+        }
+      },
+      "build-development": {
+        "map": {
+          "$sass.js": "nodesass"
+        }
+      },
+      "server-development": {
+        "map": {
+          "$sass.js": "nodesass"
+        }
+      }
     }
   },
   "devDependencies": {
-    "steal": "^0.10.5"
+    "steal": "^0.12.0",
+    "steal-tools": "^0.12.2"
   },
   "homepage": "https://github.com/stealjs/steal-sass"
 }

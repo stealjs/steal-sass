@@ -23,7 +23,7 @@
       "scss": "steal-sass"
     },
     "map": {
-      "./$sass.js": "sass.js/dist/sass"
+      "$sass.js": "sass.js/dist/sass"
     },
     "envs": {
       "build": {

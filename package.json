@@ -4,7 +4,9 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:browser": "testee test/test.html --browsers firefox --reporter Spec",
+    "test:node": "mocha test/node_test.js",
+    "test": "npm run test:browser && npm run test:node"
   },
   "repository": {
     "type": "git",
@@ -46,11 +48,19 @@
           "$sass.js": "nodesass"
         }
       }
-    }
+    },
+    "npmIgnore": [
+      "testee",
+      "mocha"
+    ]
   },
   "devDependencies": {
+    "funcunit": "^3.0.0",
+    "mocha": "^2.3.4",
     "steal": "^0.12.0",
-    "steal-tools": "^0.12.2"
+    "steal-qunit": "^0.1.1",
+    "steal-tools": "^0.12.2",
+    "testee": "^0.2.2"
   },
   "homepage": "https://github.com/stealjs/steal-sass"
 }

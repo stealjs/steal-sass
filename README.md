@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/stealjs/steal-sass.svg?branch=master)](https://travis-ci.org/stealjs/steal-sass)
+[![npm version](https://badge.fury.io/js/steal-sass.svg)](http://badge.fury.io/js/steal-sass)
+
 # steal-sass
 
 A Steal plugin for Sass.

@@ -11,4 +11,5 @@ QUnit.module("steal-sass", {
 
 QUnit.test("basics works", function(){
   F("style").exists("the style was added to the page");
+  F("style").size(2, "there are two styles on the page");
 });

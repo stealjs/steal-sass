@@ -63,7 +63,7 @@ var getSass = (function(){
       return Promise.resolve(loader.locate({ name: name }));
     }).then(function(url){
       var sass = new Sass(url);
-      getSass = function() { return sass; };
+      getSass = function() { return Promise.resolve(sass); };
       return sass;
     });
   };

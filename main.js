@@ -8,17 +8,51 @@ exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
 exports.translate = function(load){
-  var base = dir(load.address);
-  var imports = getImports(load.source);
 
   return getSass(this).then(function(sass){
     if(!isNode) {
-      return preload(sass, base, imports);
+      var base = dir(load.address).replace(/^https?:\/\/[^\/]+\/?/, "");
+
+      sass.importer(function (req, done) {
+        console.log("Checking", req, base);
+
+        var fileName = req.resolved.replace(/^\/sass/, "");
+
+        // if no extension, add underscore and extension
+        if (!fileName.match(/\.scss$/)) {
+          var parts = fileName.split('/');
+          parts.push("_" + parts.pop() + ".scss");
+          fileName = parts.join("/");
+        }
+
+        // remove leading slash
+        fileName = fileName.replace(/^\//, "");
+
+        // don't prepend files located in node_modules
+        if (!fileName.match(/^node_modules/)) {
+          fileName = base + "/" + fileName;
+        }
+
+        // Load file with text plugin
+        fileName += "!text";
+
+        //console.log("Importing", fileName);
+        loader["import"](fileName).then(function (scss) {
+          //console.log("Done importing", fileName);
+          done({
+            content: scss
+          })
+        })
+      });
+
+      return sass;
     }
     return sass;
   }).then(function(sass){
     return new Promise(function(resolve){
+      console.log("compiling");
       sass.compile(load.source, function(result){
+        console.log("compiled");
         resolve(result.text);
       })
     });
@@ -31,29 +65,20 @@ function dir(path){
   return parts.join("/");
 }
 
-var importExp = /@import.+?"(.+?)"/g;
-function getImports(source){
-  var imports = [];
-  source.replace(importExp, function(whole, imp){
-    imports.push(imp);
-  });
-  return imports;
-}
-
-function preload(sass, base, files){
-  if(!files.length) return Promise.resolve(sass);
-
-  return new Promise(function(resolve){
-    sass.preloadFiles(base, "", files, function(){
-      resolve(sass);
-    });
-  });
-}
-
 var getSass = (function(){
   if(isNode) {
     return function(loader){
-      return Promise.resolve(Sass);
+      var np = Promise.resolve(loader.normalize("sass.js/dist/sass.sync", "steal-sass"));
+      return np.then(function(name){
+        return Promise.resolve(loader.locate({ name: name }));
+      }).then(function(url){
+        var oldWindow = global.window;
+        delete global.window;
+        var sass = loader._nodeRequire(url.replace("file:", ""));
+        global.window = oldWindow;
+        getSass = function() { return Promise.resolve(sass); };
+        return sass;
+      });
     };
   }
 

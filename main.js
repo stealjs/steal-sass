@@ -13,12 +13,17 @@ exports.translate = function(load){
 
   return getSass(this).then(function(sass){
     if(!isNode) {
+      sass.importer(function (req, done) {
+        console.log("Requesting", req.resolved);
+        done();
+      });
       return preload(sass, base, imports);
     }
     return sass;
   }).then(function(sass){
     return new Promise(function(resolve){
       sass.compile(load.source, function(result){
+        console.log("It took", (Date.now() - sass.startTime), "seconds to process");
         resolve(result.text);
       })
     });
@@ -26,12 +31,12 @@ exports.translate = function(load){
 };
 
 function dir(path){
-  var parts = path.split("/");
+  var parts = path.replace(/https?:\/\/[^\/]+\//, "").split("/");
   parts.pop();
   return parts.join("/");
 }
 
-var importExp = /@import.+?"(.+?)"/g;
+var importExp = /@import.+?['"](.+?)['"]/g;
 function getImports(source){
   var imports = [];
   source.replace(importExp, function(whole, imp){
@@ -40,20 +45,55 @@ function getImports(source){
   return imports;
 }
 
-function preload(sass, base, files){
+function preload(sass, base, files) {
   if(!files.length) return Promise.resolve(sass);
 
-  return new Promise(function(resolve){
-    sass.preloadFiles(base, "", files, function(){
-      resolve(sass);
-    });
+  var stack = [];
+  for (var i = 0, l = files.length; i < l; i++) {
+    (function (file) {
+      if ( !/\.scss$/.test(file) ) {
+        var parts = file.split("/");
+        parts.push("_" + parts.pop() + ".scss");
+        file = parts.join("/");
+      }
+
+      if ( !/node_modules/.test(file) && file.indexOf(base) !== 0 ) {
+        file = base + "/" + file;
+      }
+      
+      stack.push(
+        loader.normalize(file, base).then(function (name) {
+          return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
+            return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
+              var imports = getImports(result);
+              sass.writeFile(name.split("!")[0], result);
+              return preload(sass, dir(url), imports);
+            });
+          });
+        })
+      );
+    }(files[i]));
+  }
+
+  return Promise.all(stack).then(function () {
+    return sass;
   });
 }
 
 var getSass = (function(){
   if(isNode) {
     return function(loader){
-      return Promise.resolve(Sass);
+      var np = Promise.resolve(loader.normalize("sass.js/dist/sass.sync", "steal-sass"));
+      return np.then(function(name){
+        return Promise.resolve(loader.locate({ name: name }));
+      }).then(function(url){
+        var oldWindow = global.window;
+        delete global.window;
+        var sass = loader._nodeRequire(url.replace("file:", ""));
+        global.window = oldWindow;
+        getSass = function() { return Promise.resolve(sass); };
+        return sass;
+      });
     };
   }
 
@@ -63,6 +103,7 @@ var getSass = (function(){
       return Promise.resolve(loader.locate({ name: name }));
     }).then(function(url){
       var sass = new Sass(url);
+      sass.startTime = Date.now();
       getSass = function() { return Promise.resolve(sass); };
       return sass;
     });

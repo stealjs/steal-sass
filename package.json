@@ -27,28 +27,6 @@
     "map": {
       "$sass.js": "sass.js/dist/sass"
     },
-    "envs": {
-      "build": {
-        "map": {
-          "$sass.js": "nodesass"
-        }
-      },
-      "build-development": {
-        "map": {
-          "$sass.js": "nodesass"
-        }
-      },
-      "server-development": {
-        "map": {
-          "$sass.js": "nodesass"
-        }
-      },
-      "server-production": {
-        "map": {
-          "$sass.js": "nodesass"
-        }
-      }
-    },
     "npmIgnore": [
       "testee",
       "mocha"

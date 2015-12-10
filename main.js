@@ -29,14 +29,14 @@ exports.translate = function(load){
         fileName = fileName.replace(/^\//, "");
 
         // don't prepend files located in node_modules
-        if (!fileName.match(/^node_modules/)) {
+        if (!fileName.match(/^node_modules/) && fileName.indexOf(base) !== 0) {
           fileName = base + "/" + fileName;
         }
 
         // Load file with text plugin
         fileName += "!text";
 
-        //console.log("Importing", fileName);
+        console.log("Importing", fileName);
         loader["import"](fileName).then(function (scss) {
           //console.log("Done importing", fileName);
           done({
@@ -52,7 +52,7 @@ exports.translate = function(load){
     return new Promise(function(resolve){
       console.log("compiling");
       sass.compile(load.source, function(result){
-        console.log("compiled");
+        console.log("compiled after", (Date.now() - sass.startTime), "ms");
         resolve(result.text);
       })
     });
@@ -77,6 +77,7 @@ var getSass = (function(){
         var sass = loader._nodeRequire(url.replace("file:", ""));
         global.window = oldWindow;
         getSass = function() { return Promise.resolve(sass); };
+        sass.startTime = Date.now();
         return sass;
       });
     };

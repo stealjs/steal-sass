@@ -1,8 +1,7 @@
 var Sass = require ("$sass.js");
 var css = require("$css");
 var loader = require("@loader");
-var isNode = typeof process === "object" && {}.toString.call(process) ===
-    "[object process]";
+var isNode = typeof process === "object" && {}.toString.call(process) === "[object process]";
 
 exports.instantiate = css.instantiate;
 exports.buildType = "css";
@@ -13,17 +12,18 @@ exports.translate = function(load){
 
   return getSass(this).then(function(sass){
     if(!isNode) {
-      sass.importer(function (req, done) {
-        console.log("Requesting", req.resolved);
-        done();
-      });
+      // sass.importer(function (req, done) {
+      //   console.log("Importing", req.resolved);
+      //   done();
+      // });
       return preload(sass, base, imports);
     }
     return sass;
   }).then(function(sass){
+    console.log("It took", (Date.now() - sass.startTime), "ms to import");
     return new Promise(function(resolve){
       sass.compile(load.source, function(result){
-        console.log("It took", (Date.now() - sass.startTime), "seconds to process");
+        console.log("It took", (Date.now() - sass.startTime), "ms to process");
         resolve(result.text);
       })
     });
@@ -92,6 +92,7 @@ var getSass = (function(){
         var sass = loader._nodeRequire(url.replace("file:", ""));
         global.window = oldWindow;
         getSass = function() { return Promise.resolve(sass); };
+        sass.startTime = Date.now();
         return sass;
       });
     };

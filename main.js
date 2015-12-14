@@ -14,8 +14,7 @@ exports.translate = function(load){
       var base = dir(load.address).replace(/^https?:\/\/[^\/]+\/?/, "");
 
       sass.importer(function (req, done) {
-        console.log("Checking", req, base);
-
+        // The sass library prepends "/sass/" - can't override 
         var fileName = req.resolved.replace(/^\/sass/, "");
 
         // if no extension, add underscore and extension
@@ -33,7 +32,6 @@ exports.translate = function(load){
           fileName = base + "/" + fileName;
         }
 
-        // Load file with text plugin
         fileName += "!text";
 
         console.log("Importing", fileName);
@@ -49,8 +47,10 @@ exports.translate = function(load){
     }
     return sass;
   }).then(function(sass){
+    console.log("importing took", (Date.now() - sass.startTime), "ms");
     return new Promise(function(resolve){
-      console.log("compiling");
+      console.log("compiling", load.address);
+      sass.startTime = Date.now();
       sass.compile(load.source, function(result){
         console.log("compiled after", (Date.now() - sass.startTime), "ms");
         resolve(result.text);
@@ -90,6 +90,7 @@ var getSass = (function(){
     }).then(function(url){
       var sass = new Sass(url);
       getSass = function() { return Promise.resolve(sass); };
+      sass.startTime = Date.now();
       return sass;
     });
   };

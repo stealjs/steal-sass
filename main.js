@@ -22,8 +22,9 @@ exports.translate = function(load){
   }).then(function(sass){
     console.log("It took", (Date.now() - sass.startTime), "ms to import");
     return new Promise(function(resolve){
+      sass.startTime = Date.now();
       sass.compile(load.source, function(result){
-        console.log("It took", (Date.now() - sass.startTime), "ms to process");
+        console.log("It took", (Date.now() - sass.startTime), "ms to compile");
         resolve(result.text);
       })
     });
@@ -33,7 +34,7 @@ exports.translate = function(load){
 function dir(path){
   var parts = path.replace(/https?:\/\/[^\/]+\//, "").split("/");
   parts.pop();
-  return parts.join("/");
+  return parts.join("/") + "/";
 }
 
 var importExp = /@import.+?['"](.+?)['"]/g;
@@ -50,15 +51,19 @@ function preload(sass, base, files) {
 
   var stack = [];
   for (var i = 0, l = files.length; i < l; i++) {
-    (function (file) {
+    (function (importName) {
+      var file = importName;
+      // SCSS allows for a shortname syntax "foo/bar", which will try to find "foo/_bar.scss" on the filesystem.
       if ( !/\.scss$/.test(file) ) {
         var parts = file.split("/");
         parts.push("_" + parts.pop() + ".scss");
         file = parts.join("/");
       }
 
-      if ( !/node_modules/.test(file) && file.indexOf(base) !== 0 ) {
-        file = base + "/" + file;
+      // CSS imports allow relative paths using @import "foo/bar.css" - we have to fix this for SystemJS
+      // If the file doesn't start with "./", "../", or the base path, make it relative
+      if ( !/^\.\.?\//.test(file) && file.indexOf(base) !== 0 ) {
+        file = "./" + file;
       }
       
       stack.push(
@@ -67,7 +72,11 @@ function preload(sass, base, files) {
             return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
               var imports = getImports(result);
               sass.writeFile(name.split("!")[0], result);
-              return preload(sass, dir(url), imports);
+
+              if (imports.length) {
+                return preload(sass, dir(url), imports);
+              }
+              return sass;
             });
           });
         })

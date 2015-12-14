@@ -16,11 +16,11 @@ exports.translate = function(load){
       //   console.log("Importing", req.resolved);
       //   done();
       // });
-      return preload(sass, base, imports);
+      return preload(sass, base, imports, load);
     }
     return sass;
   }).then(function(sass){
-    console.log("It took", (Date.now() - sass.startTime), "ms to import");
+    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)");
     return new Promise(function(resolve){
       sass.startTime = Date.now();
       sass.compile(load.source, function(result){
@@ -46,7 +46,7 @@ function getImports(source){
   return imports;
 }
 
-function preload(sass, base, files) {
+function preload(sass, base, files, load) {
   if(!files.length) return Promise.resolve(sass);
 
   var stack = [];
@@ -71,10 +71,11 @@ function preload(sass, base, files) {
           return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
             return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
               var imports = getImports(result);
-              sass.writeFile(name.split("!")[0], result);
+              
+              load.source = load.source.replace(new RegExp("@import.+?['\"]" + importName + "['\"]"), result);
 
               if (imports.length) {
-                return preload(sass, dir(url), imports);
+                return preload(sass, dir(url), imports, load);
               }
               return sass;
             });

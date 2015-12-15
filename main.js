@@ -11,14 +11,7 @@ exports.translate = function(load){
   var imports = getImports(load.source);
 
   return getSass(this).then(function(sass){
-    if(!isNode) {
-      // sass.importer(function (req, done) {
-      //   console.log("Importing", req.resolved);
-      //   done();
-      // });
-      return preload(sass, base, imports);
-    }
-    return sass;
+    return preload(sass, base, imports);
   }).then(function(sass){
     console.log("It took", (Date.now() - sass.startTime), "ms to import");
     return new Promise(function(resolve){
@@ -32,6 +25,10 @@ exports.translate = function(load){
 };
 
 function dir(path){
+  if (isNode) {
+    path = path.replace("file:" + process.cwd() + "/", "");
+  }
+
   var parts = path.replace(/https?:\/\/[^\/]+\//, "").split("/");
   parts.pop();
   return parts.join("/") + "/";
@@ -71,7 +68,8 @@ function preload(sass, base, files) {
           return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
             return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
               var imports = getImports(result);
-              sass.writeFile(name.split("!")[0], result);
+              var key = name.split("!")[0];
+              sass.writeFile(key, result);
 
               if (imports.length) {
                 return preload(sass, dir(url), imports);

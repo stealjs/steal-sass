@@ -11,14 +11,10 @@ exports.translate = function(load){
   var imports = getImports(load.source);
 
   return getSass(this).then(function(sass){
-    if(!isNode) {
-      // sass.importer(function (req, done) {
-      //   console.log("Importing", req.resolved);
-      //   done();
-      // });
-      return preload(sass, base, imports, load);
+    if(isNode) {
+      base = base.replace("file:" + process.cwd() + "/", "");
     }
-    return sass;
+    return preload(sass, base, imports, load);
   }).then(function(sass){
     console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)");
     return new Promise(function(resolve){

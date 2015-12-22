@@ -10,27 +10,51 @@ exports.translate = function(load){
   var base = dir(load.address);
   var imports = getImports(load.source);
 
-  return getSass(this).then(function(sass){
+  return getSass(this).then(function(sass) {
+    if (typeof sass.___concatenated_source === "undefined") {
+      sass.___concatenated_source = "";
+      sass.___import_hash = {};
+    }
+
+    clearTimeout(sass.___compile_timer);
+
     if(isNode) {
       base = base.replace("file:" + process.cwd() + "/", "");
     }
     return preload(sass, base, imports, load);
   }).then(function(sass){
+    clearTimeout(sass.___compile_timer);
+
     console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
     return new Promise(function(resolve){
       sass.startTime = Date.now();
-      sass.compile(load.source, function(result){
-        console.log("It took", (Date.now() - sass.startTime), "ms to compile");
-        if (result.status > 0) {
-          console.error("STEAL-SASS ERROR", result.status, "-", result.message);
-          resolve("");
-          return;
-        }
-        resolve(result.text);
-      })
+      sass.___concatenated_source += load.source;
+
+      // Resolve the previous resolver - the last one is the only one that will resolve with content
+      if (sass.___compile_resolver) {
+        sass.___compile_resolver("");
+      }
+
+      sass.___compile_resolver = resolve;
+      clearTimeout(sass.___compile_timer);
+      sass.___compile_timer = setTimeout(function () {
+        runCompile(sass, resolve);
+      }, isNode ? 10 : 300);
     });
   });
 };
+
+function runCompile (sass) {
+  sass.compile(sass.___concatenated_source, function(result){
+    console.log("It took", (Date.now() - sass.startTime), "ms to compile");
+    if (result.status > 0) {
+      console.error("STEAL-SASS ERROR", result.status, "-", result.message);
+      sass.___compile_resolver("");
+      return;
+    }
+    sass.___compile_resolver(result.text);
+  });
+}
 
 function dir(path){
   var parts = path.replace(/https?:\/\/[^\/]+\//, "").split("/");
@@ -54,6 +78,9 @@ function preload(sass, base, files, load) {
   for (var i = 0, l = files.length; i < l; i++) {
     (function (importName) {
       var file = importName;
+      var importRegex = new RegExp("@import.+?['\"]" + importName + "['\"]");
+      var importKey;
+
       // SCSS allows for a shortname syntax "foo/bar", which will try to find "foo/_bar.scss" on the filesystem.
       if ( !/\.scss$/.test(file) ) {
         var parts = file.split("/");
@@ -66,14 +93,18 @@ function preload(sass, base, files, load) {
       if ( !/^\.\.?\//.test(file) && file.indexOf(base) !== 0 ) {
         file = "./" + file;
       }
-      
-      stack.push(
-        loader.normalize(file, base).then(function (name) {
+
+      importKey = base + "---" + file;
+
+      if (sass.___import_hash[importKey]) {
+        load.source = load.source.replace(importRegex, "");
+      } else {
+        sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
           return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
             return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
               var imports = getImports(result);
               
-              load.source = load.source.replace(new RegExp("@import.+?['\"]" + importName + "['\"]"), result);
+              load.source = load.source.replace(importRegex, result);
 
               if (imports.length) {
                 return preload(sass, dir(url), imports, load);
@@ -81,8 +112,11 @@ function preload(sass, base, files, load) {
               return sass;
             });
           });
-        })
-      );
+        });
+      }
+
+      stack.push(sass.___import_hash[importKey]);
+
     }(files[i]));
   }
 

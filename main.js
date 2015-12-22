@@ -16,11 +16,16 @@ exports.translate = function(load){
     }
     return preload(sass, base, imports, load);
   }).then(function(sass){
-    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)");
+    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
     return new Promise(function(resolve){
       sass.startTime = Date.now();
       sass.compile(load.source, function(result){
         console.log("It took", (Date.now() - sass.startTime), "ms to compile");
+        if (result.status > 0) {
+          console.error("STEAL-SASS ERROR", result.status, "-", result.message);
+          resolve("");
+          return;
+        }
         resolve(result.text);
       })
     });

@@ -10,10 +10,14 @@ exports.translate = function(load){
   var base = dir(load.address);
   var imports = getImports(load.source);
 
+  console.log("======================", load.address);
+
   return getSass(this).then(function(sass) {
+    // this will only happen once
     if (typeof sass.___concatenated_source === "undefined") {
       sass.___concatenated_source = "";
       sass.___import_hash = {};
+      sass.___load_stack = [];
     }
 
     clearTimeout(sass.___compile_timer);
@@ -21,7 +25,19 @@ exports.translate = function(load){
     if(isNode) {
       base = base.replace("file:" + process.cwd() + "/", "");
     }
-    return preload(sass, base, imports, load);
+
+    var promise;
+    if (sass.___load_stack.length) {
+      promise = sass.___load_stack[0].then(function () {
+        return preload(sass, base, imports, load);
+      });
+    } else {
+      promise = preload(sass, base, imports, load)
+    }
+
+    sass.___load_stack.unshift( promise );
+
+    return promise;
   }).then(function(sass){
     clearTimeout(sass.___compile_timer);
 
@@ -38,8 +54,9 @@ exports.translate = function(load){
       sass.___compile_resolver = resolve;
       clearTimeout(sass.___compile_timer);
       sass.___compile_timer = setTimeout(function () {
+        console.log("COMPILING");
         runCompile(sass, resolve);
-      }, isNode ? 10 : 300);
+      }, 50);
     });
   });
 };
@@ -94,26 +111,34 @@ function preload(sass, base, files, load) {
         file = "./" + file;
       }
 
-      importKey = base + "---" + file;
+      importKey = base + "|" + file;
 
-      if (sass.___import_hash[importKey]) {
-        load.source = load.source.replace(importRegex, "");
-      } else {
-        sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
-          return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
-            return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
-              var imports = getImports(result);
-              
-              load.source = load.source.replace(importRegex, result);
+      sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
+        if (sass.___import_hash[name]) {
+          load.source = load.source.replace(importRegex, "");
 
-              if (imports.length) {
-                return preload(sass, dir(url), imports, load);
-              }
-              return sass;
+          return new Promise(function(resolve) {
+            sass.___import_hash[name].then(function () {
+              resolve(sass);
             });
           });
+        }
+
+        sass.___import_hash[name] = Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
+          return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
+            var imports = getImports(result);
+            
+            load.source = load.source.replace(importRegex, result);
+
+            if (imports.length) {
+              return preload(sass, dir(url), imports, load);
+            }
+            return sass;
+          });
         });
-      }
+
+        return sass.___import_hash[name];
+      });
 
       stack.push(sass.___import_hash[importKey]);
 

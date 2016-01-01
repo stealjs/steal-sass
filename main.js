@@ -62,6 +62,7 @@ exports.translate = function(load){
 };
 
 function runCompile (sass) {
+  // console.log("runCompile", sass.___concatenated_source);
   sass.compile(sass.___concatenated_source, function(result){
     console.log("It took", (Date.now() - sass.startTime), "ms to compile");
     if (result.status > 0) {

@@ -113,10 +113,11 @@ function preload(sass, base, files, load) {
       }
 
       importKey = base + "|" + file;
+      load.source = load.source.replace(importRegex, importKey);
 
       sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
         if (sass.___import_hash[name]) {
-          load.source = load.source.replace(importRegex, "");
+          load.source = load.source.replace(importKey, "");
 
           return new Promise(function(resolve) {
             sass.___import_hash[name].then(function () {
@@ -129,7 +130,7 @@ function preload(sass, base, files, load) {
           return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
             var imports = getImports(result);
             
-            load.source = load.source.replace(importRegex, result);
+            load.source = load.source.replace(importKey, result);
 
             if (imports.length) {
               return preload(sass, dir(url), imports, load);

@@ -89,61 +89,71 @@ function getImports(source){
   return imports;
 }
 
-function preload(sass, base, files, load) {
+function preload(sass, base, files, load, parentName) {
   if(!files.length) return Promise.resolve(sass);
 
-  var stack = [];
-  for (var i = 0, l = files.length; i < l; i++) {
-    (function (importName) {
-      var file = importName;
-      var importRegex = new RegExp("@import.+?['\"]" + importName + "['\"]");
-      var importKey;
+  function DO_IMPORT (importName) {
+    var file = importName;
+    var importRegex = new RegExp("@import.+?['\"]" + importName + "['\"]");
+    var importKey;
 
-      // SCSS allows for a shortname syntax "foo/bar", which will try to find "foo/_bar.scss" on the filesystem.
-      if ( !/\.scss$/.test(file) ) {
-        var parts = file.split("/");
-        parts.push("_" + parts.pop() + ".scss");
-        file = parts.join("/");
-      }
+    // SCSS allows for a shortname syntax "foo/bar", which will try to find "foo/_bar.scss" on the filesystem.
+    if ( !/\.scss$/.test(file) ) {
+      var parts = file.split("/");
+      parts.push("_" + parts.pop() + ".scss");
+      file = parts.join("/");
+    }
 
-      // CSS imports allow relative paths using @import "foo/bar.css" - we have to fix this for SystemJS
-      // If the file doesn't start with "./", "../", or the base path, make it relative
-      if ( !/^\.\.?\//.test(file) && file.indexOf(base) !== 0 ) {
-        file = "./" + file;
-      }
+    // CSS imports allow relative paths using @import "foo/bar.css" - we have to fix this for SystemJS
+    // If the file doesn't start with "./", "../", or the base path, make it relative
+    if ( !/^\.\.?\//.test(file) && file.indexOf(base) !== 0 ) {
+      file = "./" + file;
+    }
 
-      importKey = base + "|" + file;
-      load.source = load.source.replace(importRegex, importKey);
+    importKey = base + "|" + file;
+    load.source = load.source.replace(importRegex, importKey);
 
-      sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
-        if (sass.___import_hash[name]) {
+    sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
+      return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
+        if (sass.___import_hash[url]) {
           load.source = load.source.replace(importKey, "");
 
           return new Promise(function(resolve) {
-            sass.___import_hash[name].then(function () {
+            sass.___import_hash[url].then(function () {
               resolve(sass);
             });
           });
         }
 
-        sass.___import_hash[name] = Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
-          return loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
-            var imports = getImports(result);
-            
-            load.source = load.source.replace(importKey, result);
+        sass.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
+          var imports = getImports(result);
+          load.source = load.source.replace(importKey, result);
 
-            if (imports.length) {
-              return preload(sass, dir(url), imports, load);
-            }
-            return sass;
-          });
+          if (imports.length) {
+            return preload(sass, dir(url), imports, load, name);
+          }
+          return sass;
         });
 
-        return sass.___import_hash[name];
+        return sass.___import_hash[url];
       });
+    });
 
-      stack.push(sass.___import_hash[importKey]);
+    return sass.___import_hash[importKey];
+  };
 
+  var stack = [];
+  for (var i = 0, l = files.length; i < l; i++) {
+    (function (importName) {
+      var promise;
+      if (stack.length) {
+        promise = stack[0].then(function () {
+          return DO_IMPORT(importName)
+        });
+      } else {
+        promise = DO_IMPORT(importName);
+      }
+      stack.unshift(promise);
     }(files[i]));
   }
 

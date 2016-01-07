@@ -30,22 +30,22 @@
     "envs": {
       "build": {
         "map": {
-          "$sass.js": "nodesass"
+          "$sass.js": "steal-sass/nodesass"
         }
       },
       "build-development": {
         "map": {
-          "$sass.js": "nodesass"
+          "$sass.js": "steal-sass/nodesass"
         }
       },
       "server-development": {
         "map": {
-          "$sass.js": "nodesass"
+          "$sass.js": "steal-sass/nodesass"
         }
       },
       "server-production": {
         "map": {
-          "$sass.js": "nodesass"
+          "$sass.js": "steal-sass/nodesass"
         }
       }
     },

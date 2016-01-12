@@ -7,11 +7,10 @@ exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
 exports.translate = function(load){
-  var url = load.address;
-  var base = dir(url);
+  var base = dir(load.address);
   var imports = getImports(load.source);
 
-  console.log("======================", url);
+  console.log("======================", load.address);
 
   return getSass(this).then(function(sass) {
     // this will only happen once
@@ -20,8 +19,6 @@ exports.translate = function(load){
       sass.___import_hash = {};
       sass.___load_stack = [];
     }
-
-    clearTimeout(sass.___compile_timer);
 
     if(isNode) {
       base = base.replace("file:" + process.cwd() + "/", "");
@@ -37,33 +34,32 @@ exports.translate = function(load){
     }
 
     sass.___load_stack.unshift( promise );
-    // sass.___import_hash[url] = Promise.resolve(sass);
+    sass.___import_hash[load.address] = Promise.resolve(sass);
 
     return promise;
   }).then(function(sass){
-    clearTimeout(sass.___compile_timer);
+    var promise = sass.___load_stack.pop();
+    
+    sass.startTime = Date.now();
+    sass.___concatenated_source += load.source;
+    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
 
-    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", url);
-    return new Promise(function(resolve){
-      sass.startTime = Date.now();
-      sass.___concatenated_source += load.source;
-
+    // If this is the last promise in the stack, then compile
+    if ( !sass.___load_stack.length ) {
+      return new Promise(function(resolve){
+        promise.then(function () {
+          console.log("COMPILING");
+          runCompile(sass, resolve);
+        });
+      });
+    } else {
       // Resolve the previous resolver - the last one is the only one that will resolve with content
-      if (sass.___compile_resolver) {
-        sass.___compile_resolver("");
-      }
-
-      sass.___compile_resolver = resolve;
-      clearTimeout(sass.___compile_timer);
-      sass.___compile_timer = setTimeout(function () {
-        console.log("COMPILING");
-        runCompile(sass, resolve);
-      }, 500);
-    });
+      return Promise.resolve("");
+    }
   });
 };
 
-function runCompile (sass) {
+function runCompile (sass, resolve) {
   // console.log("runCompile", sass.___concatenated_source);
   sass.compile(sass.___concatenated_source, function(result){
     console.log("It took", (Date.now() - sass.startTime), "ms to compile");
@@ -72,7 +68,7 @@ function runCompile (sass) {
       sass.___compile_resolver("");
       return;
     }
-    sass.___compile_resolver(result.text);
+    resolve(result.text);
   });
 }
 
@@ -118,7 +114,6 @@ function preload(sass, base, files, load, parentName) {
     sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
       return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
         url = url.split("!")[0];
-        // console.log("Checking", name, "|", url);
         if (sass.___import_hash[url]) {
           load.source = load.source.replace(importKey, "");
 
@@ -140,7 +135,7 @@ function preload(sass, base, files, load, parentName) {
             return sass;
           });
         // } catch (ex) {
-        //   throw new Error ("AAAAAAAGGGGG | " + name + " | " + url);
+        //   throw new Error ("AAAAAAAGGGGG | " + name + " | " + url + " | " + file + " | " + base);
         // }
 
         return sass.___import_hash[url];

@@ -40,9 +40,9 @@ exports.translate = function(load){
   }).then(function(sass){
     var promise = sass.___load_stack.pop();
     
+    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
     sass.startTime = Date.now();
     sass.___concatenated_source += load.source;
-    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
 
     // If this is the last promise in the stack, then compile
     if ( !sass.___load_stack.length ) {

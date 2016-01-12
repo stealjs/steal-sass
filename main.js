@@ -65,7 +65,7 @@ function runCompile (sass, resolve) {
     console.log("It took", (Date.now() - sass.startTime), "ms to compile");
     if (result.status > 0) {
       console.error("STEAL-SASS ERROR", result.status, "-", result.message);
-      sass.___compile_resolver("");
+      resolve("");
       return;
     }
     resolve(result.text);

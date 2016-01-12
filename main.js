@@ -7,10 +7,11 @@ exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
 exports.translate = function(load){
-  var base = dir(load.address);
+  var url = load.address;
+  var base = dir(url);
   var imports = getImports(load.source);
 
-  console.log("======================", load.address);
+  console.log("======================", url);
 
   return getSass(this).then(function(sass) {
     // this will only happen once
@@ -36,12 +37,13 @@ exports.translate = function(load){
     }
 
     sass.___load_stack.unshift( promise );
+    // sass.___import_hash[url] = Promise.resolve(sass);
 
     return promise;
   }).then(function(sass){
     clearTimeout(sass.___compile_timer);
 
-    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
+    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", url);
     return new Promise(function(resolve){
       sass.startTime = Date.now();
       sass.___concatenated_source += load.source;
@@ -56,7 +58,7 @@ exports.translate = function(load){
       sass.___compile_timer = setTimeout(function () {
         console.log("COMPILING");
         runCompile(sass, resolve);
-      }, 50);
+      }, 500);
     });
   });
 };
@@ -115,6 +117,8 @@ function preload(sass, base, files, load, parentName) {
 
     sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
       return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
+        url = url.split("!")[0];
+        // console.log("Checking", name, "|", url);
         if (sass.___import_hash[url]) {
           load.source = load.source.replace(importKey, "");
 
@@ -125,15 +129,19 @@ function preload(sass, base, files, load, parentName) {
           });
         }
 
-        sass.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
-          var imports = getImports(result);
-          load.source = load.source.replace(importKey, result);
+        // try {
+          sass.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
+              var imports = getImports(result);
+              load.source = load.source.replace(importKey, result);
 
-          if (imports.length) {
-            return preload(sass, dir(url), imports, load, name);
-          }
-          return sass;
-        });
+              if (imports.length) {
+                return preload(sass, dir(url), imports, load, name);
+              }
+            return sass;
+          });
+        // } catch (ex) {
+        //   throw new Error ("AAAAAAAGGGGG | " + name + " | " + url);
+        // }
 
         return sass.___import_hash[url];
       });

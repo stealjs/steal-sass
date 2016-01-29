@@ -6,6 +6,12 @@ var isNode = typeof process === "object" && {}.toString.call(process) === "[obje
 exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
+var META = {
+  ___concatenated_source: "",
+  ___import_hash: {},
+  ___load_stack: []
+};
+
 exports.translate = function(load){
   var base = dir(load.address);
   var imports = getImports(load.source);
@@ -13,39 +19,36 @@ exports.translate = function(load){
   console.log("======================", load.address);
 
   return getSass(this).then(function(sass) {
-    // this will only happen once
-    if (typeof sass.___concatenated_source === "undefined") {
-      sass.___concatenated_source = "";
-      sass.___import_hash = {};
-      sass.___load_stack = [];
-    }
-
     if(isNode) {
       base = base.replace("file:" + process.cwd() + "/", "");
     }
 
     var promise;
-    if (sass.___load_stack.length) {
-      promise = sass.___load_stack[0].then(function () {
+    if (META.___load_stack.length) {
+      promise = META.___load_stack[0].then(function () {
         return preload(sass, base, imports, load);
       });
     } else {
       promise = preload(sass, base, imports, load)
     }
 
-    sass.___load_stack.unshift( promise );
-    sass.___import_hash[load.address] = Promise.resolve(sass);
+    META.___load_stack.unshift( promise );
+    META.___import_hash[load.address] = Promise.resolve(sass);
 
+    var start = Date.now();
+    promise.then(function () {
+      console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
+    });
+    
     return promise;
   }).then(function(sass){
-    var promise = sass.___load_stack.pop();
+    var promise = META.___load_stack.pop();
     
-    console.log("It took", (Date.now() - sass.startTime), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
     sass.startTime = Date.now();
-    sass.___concatenated_source += load.source;
+    META.___concatenated_source += load.source;
 
     // If this is the last promise in the stack, then compile
-    if ( !sass.___load_stack.length ) {
+    if ( !META.___load_stack.length ) {
       return new Promise(function(resolve){
         promise.then(function () {
           console.log("COMPILING");
@@ -60,8 +63,8 @@ exports.translate = function(load){
 };
 
 function runCompile (sass, resolve) {
-  // console.log("runCompile", sass.___concatenated_source);
-  sass.compile(sass.___concatenated_source, function(result){
+  // console.log("runCompile", META.___concatenated_source);
+  sass.compile(META.___concatenated_source, function(result){
     console.log("It took", (Date.now() - sass.startTime), "ms to compile");
     if (result.status > 0) {
       console.error("STEAL-SASS ERROR", result.status, "-", result.message);
@@ -111,21 +114,21 @@ function preload(sass, base, files, load, parentName) {
     importKey = base + "|" + file;
     load.source = load.source.replace(importRegex, importKey);
 
-    sass.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
+    META.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
       return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
         url = url.split("!")[0];
-        if (sass.___import_hash[url]) {
+        if (META.___import_hash[url]) {
           load.source = load.source.replace(importKey, "");
 
           return new Promise(function(resolve) {
-            sass.___import_hash[url].then(function () {
+            META.___import_hash[url].then(function () {
               resolve(sass);
             });
           });
         }
 
         // try {
-          sass.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
+          META.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
               var imports = getImports(result);
               load.source = load.source.replace(importKey, result);
 
@@ -138,11 +141,11 @@ function preload(sass, base, files, load, parentName) {
         //   throw new Error ("AAAAAAAGGGGG | " + name + " | " + url + " | " + file + " | " + base);
         // }
 
-        return sass.___import_hash[url];
+        return META.___import_hash[url];
       });
     });
 
-    return sass.___import_hash[importKey];
+    return META.___import_hash[importKey];
   };
 
   var stack = [];
@@ -177,7 +180,6 @@ var getSass = (function(){
         var sass = loader._nodeRequire(url.replace("file:", ""));
         global.window = oldWindow;
         getSass = function() { return Promise.resolve(sass); };
-        sass.startTime = Date.now();
         return sass;
       });
     };
@@ -189,8 +191,7 @@ var getSass = (function(){
       return Promise.resolve(loader.locate({ name: name }));
     }).then(function(url){
       var sass = new Sass(url);
-      sass.startTime = Date.now();
-      getSass = function() { return Promise.resolve(sass); };
+      getSass = function() { return Promise.resolve(new Sass(url)); };
       return sass;
     });
   };

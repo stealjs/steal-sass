@@ -13,70 +13,80 @@ var META = {
 };
 
 exports.translate = function(load){
-  var base = dir(load.address);
-  var imports = getImports(load.source);
-
-  console.log("======================", load.address);
-
   return getSass(this).then(function(sass) {
-    if(isNode) {
-      base = base.replace("file:" + process.cwd() + "/", "");
-    }
+    console.log("======================", load.address);
 
     var promise;
+    var start;
     if (META.___load_stack.length) {
       promise = META.___load_stack[0].then(function () {
-        return preload(sass, base, imports, load);
+        start = Date.now();
+        return processUrl(load.address, load.source, load);
       });
     } else {
-      promise = preload(sass, base, imports, load)
+      start = Date.now()
+      promise = processUrl(load.address, load.source, load);
     }
 
-    META.___load_stack.unshift( promise );
-    META.___import_hash[load.address] = Promise.resolve(sass);
+    promise = promise.then(function () {
+      return new Promise(function(resolve) {
+        var delay = META.___load_stack.length === 1 ? 200 : 10;
+        setTimeout(resolve, delay);
+      });
+    });
 
-    var start = Date.now();
+    META.___load_stack.unshift( promise );
+    //META.___import_hash[load.address] = Promise.resolve();
+
     promise.then(function () {
       console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
     });
     
-    return promise;
+    return promise.then(function () {
+      return sass;
+    });
   }).then(function(sass){
     var promise = META.___load_stack.pop();
     
-    sass.startTime = Date.now();
     META.___concatenated_source += load.source;
 
     // If this is the last promise in the stack, then compile
     if ( !META.___load_stack.length ) {
       return new Promise(function(resolve){
         promise.then(function () {
-          console.log("COMPILING");
-          runCompile(sass, resolve);
+          runCompile(sass, META.___concatenated_source, resolve,           load.address);
         });
       });
     } else {
       // Resolve the previous resolver - the last one is the only one that will resolve with content
-      return Promise.resolve("");
+      return "";
     }
   });
 };
 
-function runCompile (sass, resolve) {
-  // console.log("runCompile", META.___concatenated_source);
-  sass.compile(META.___concatenated_source, function(result){
-    console.log("It took", (Date.now() - sass.startTime), "ms to compile");
+function runCompile (sass, source, resolve, address) {
+  var start = Date.now();
+  console.log("COMPILING (", source.length, ")", address);
+  sass.compile(source, function(result){
+    console.log("It took", (Date.now() - start), "ms to compile: ", address);
     if (result.status > 0) {
       console.error("STEAL-SASS ERROR", result.status, "-", result.message);
+      console.log(source);
       resolve("");
       return;
     }
+    // console.log("HAS REMOVE STATEMENT:", result.text.indexOf(REMOVE_START));
     resolve(result.text);
   });
 }
 
-function dir(path){
-  var parts = path.replace(/https?:\/\/[^\/]+\//, "").split("/");
+function getBase(path){
+  if(isNode) {
+    path = path.replace("file:" + process.cwd() + "/", "");
+  }
+  path = path.replace(/https?:\/\/[^\/]+\//, "")
+
+  var parts = path.split("/");
   parts.pop();
   return parts.join("/") + "/";
 }
@@ -90,109 +100,104 @@ function getImports(source){
   return imports;
 }
 
-function preload(sass, base, files, load, parentName) {
-  if(!files.length) return Promise.resolve(sass);
+function processUrl(url, source, load) {
+  var imports = getImports(source);
+  var index = 0;
 
-  function DO_IMPORT (importName) {
-    var file = importName;
-    var importRegex = new RegExp("@import.+?['\"]" + importName + "['\"]");
-    var importKey;
+  if ( !imports.length ) {
+    return Promise.resolve(source);
+  }
 
-    // SCSS allows for a shortname syntax "foo/bar", which will try to find "foo/_bar.scss" on the filesystem.
-    if ( !/\.scss$/.test(file) ) {
-      var parts = file.split("/");
-      parts.push("_" + parts.pop() + ".scss");
-      file = parts.join("/");
-    }
-
-    // CSS imports allow relative paths using @import "foo/bar.css" - we have to fix this for SystemJS
-    // If the file doesn't start with "./", "../", or the base path, make it relative
-    if ( !/^\.\.?\//.test(file) && file.indexOf(base) !== 0 ) {
-      file = "./" + file;
-    }
-
-    importKey = base + "|" + file;
-    load.source = load.source.replace(importRegex, importKey);
-
-    META.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
-      return Promise.resolve(loader.locate({ name: name, metadata: {} })).then(function (url) {
-        url = url.split("!")[0];
-        if (META.___import_hash[url]) {
-          load.source = load.source.replace(importKey, "");
-
-          return new Promise(function(resolve) {
-            META.___import_hash[url].then(function () {
-              resolve(sass);
-            });
-          });
-        }
-
-        // try {
-          META.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
-              var imports = getImports(result);
-              load.source = load.source.replace(importKey, result);
-
-              if (imports.length) {
-                return preload(sass, dir(url), imports, load, name);
-              }
-            return sass;
-          });
-        // } catch (ex) {
-        //   throw new Error ("AAAAAAAGGGGG | " + name + " | " + url + " | " + file + " | " + base);
-        // }
-
-        return META.___import_hash[url];
-      });
-    });
-
-    return META.___import_hash[importKey];
-  };
-
-  var stack = [];
-  for (var i = 0, l = files.length; i < l; i++) {
+  var base = getBase(url);
+  var stack = [], i, l;
+  for (i = 0, l = imports.length; i < l; i++) {
     (function (importName) {
-      var promise;
-      if (stack.length) {
-        promise = stack[0].then(function () {
-          return DO_IMPORT(importName)
-        });
-      } else {
-        promise = DO_IMPORT(importName);
-      }
-      stack.unshift(promise);
-    }(files[i]));
+      var importRegex = new RegExp("@import.+?['\"]" + importName + "['\"]");
+      var promise = DO_IMPORT(importName, importRegex, base, load).then(function (result) {
+        source = source.replace(importRegex, result);
+        return result;
+      });
+      stack.push(promise);
+    }(imports[i]));
   }
 
   return Promise.all(stack).then(function () {
-    return sass;
+    return source;
   });
 }
 
-var getSass = (function(){
-  if(isNode) {
-    return function(loader){
-      var np = Promise.resolve(loader.normalize("sass.js/dist/sass.sync", "steal-sass"));
-      return np.then(function(name){
-        return Promise.resolve(loader.locate({ name: name }));
-      }).then(function(url){
-        var oldWindow = global.window;
-        delete global.window;
-        var sass = loader._nodeRequire(url.replace("file:", ""));
-        global.window = oldWindow;
-        getSass = function() { return Promise.resolve(sass); };
-        return sass;
-      });
-    };
+function DO_IMPORT (file, importRegex, base, load) {
+  var importKey;
+
+  // SCSS allows for a shortname syntax "foo/bar", which will try to find "foo/_bar.scss" on the filesystem.
+  if ( !/\.scss$/.test(file) ) {
+    var parts = file.split("/");
+    parts.push("_" + parts.pop() + ".scss");
+    file = parts.join("/");
   }
 
-  return function(loader){
-    var np = Promise.resolve(loader.normalize("sass.js/dist/sass.worker", "steal-sass"));
-    return np.then(function(name){
-      return Promise.resolve(loader.locate({ name: name }));
-    }).then(function(url){
-      var sass = new Sass(url);
-      getSass = function() { return Promise.resolve(new Sass(url)); };
-      return sass;
+  // CSS imports allow relative paths using @import "foo/bar.css" - we have to fix this for SystemJS
+  // If the file doesn't start with "./", "../", or the base path, make it relative
+  if ( !/^\.\.?\//.test(file) && file.indexOf(base) !== 0 ) {
+    file = "./" + file;
+  }
+
+  importKey = base + "|" + file;
+  load.source = load.source.replace(importRegex, importKey);
+
+  if (META.___import_hash[importKey]) {
+    return META.___import_hash[importKey].then(function (result) {
+      // load.source = load.source.replace(importKey, result);
+      load.source = load.source.replace(importKey, "");
+      
+      return result;
     });
-  };
-})();
+  }
+
+  META.___import_hash[importKey] = loader.normalize(file, base).then(function (name) {
+    return loader.locate({ name: name, metadata: {} }).then(function (url) {
+      url = url.split("!")[0];
+
+      // If the file is already being loaded, then surround it with remove statements
+      if (META.___import_hash[url]) {
+        return META.___import_hash[url].then(function (result) {
+          // load.source = load.source.replace(importKey, result);
+          load.source = load.source.replace(importKey, "");
+          return result;
+        });
+      }
+
+      META.___import_hash[url] = loader.fetch({ name: name, address: url, metadata: {} }).then(function (result) {
+        load.source = load.source.replace(importKey, result);
+
+        return processUrl(url, result, load).then(function (finalResult) {
+          return finalResult;
+        });
+      });
+
+      return META.___import_hash[url];
+    });
+  });
+
+  return META.___import_hash[importKey];
+};
+
+var sassProcessor = isNode ? "sass.js/dist/sass.sync" : "sass.js/dist/sass.worker";
+var getSass = function (loader, newInstance) {
+  return loader.normalize(sassProcessor, "steal-sass").then(function(name){
+    return loader.locate({ name: name });
+  }).then(function (url) {
+    var sass;
+    if (isNode) {
+      var oldWindow = global.window;
+      url = url.replace("file:", "");
+      delete global.window;
+      delete loader._nodeRequire.cache[url];
+      sass = loader._nodeRequire(url);
+      global.window = oldWindow;
+    } else {
+      sass = new Sass(url);
+    }
+    return sass;
+  });
+};

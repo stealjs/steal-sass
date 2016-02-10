@@ -14,7 +14,7 @@ var META = {
 
 exports.translate = function(load){
   return getSass(this).then(function(sass) {
-    console.log("======================", load.address);
+    console.log("======================", load.address, load.source.length);
 
     var promise;
     var start;
@@ -28,21 +28,18 @@ exports.translate = function(load){
       promise = processUrl(load.address, load.source, load);
     }
 
-    promise = promise.then(function () {
-      return new Promise(function(resolve) {
-        var delay = META.___load_stack.length === 1 ? 200 : 10;
-        setTimeout(resolve, delay);
-      });
-    });
+    // promise = promise.then(function () {
+    //   return new Promise(function(resolve) {
+    //     var delay = META.___load_stack.length === 1 ? 200 : 10;
+    //     setTimeout(resolve, delay);
+    //   });
+    // });
 
     META.___load_stack.unshift( promise );
     //META.___import_hash[load.address] = Promise.resolve();
-
-    promise.then(function () {
-      console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
-    });
     
     return promise.then(function () {
+      console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
       return sass;
     });
   }).then(function(sass){

@@ -11,6 +11,22 @@ if (isNode) {
   fs = loader._nodeRequire("fs");
 }
 
+// Create the directory where the compiles CSS will live in dev mode
+function createDir (parts, i) {
+  var path = parts.slice(0, ++i).join("/");
+  fs.mkdir(path, function (err) {
+    if (err && err.code !== "EEXIST") {
+      throw new Error(err);
+    }
+    if (i < parts.length) {
+      createDir(parts, i);
+    }
+  });
+}
+if (isNode && !isBuild) {
+  createDir(DEV_CSS_PATH.split("/").filter(Boolean), 0);
+}
+
 exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
@@ -129,9 +145,6 @@ function runCompile (sass, source, resolve, address) {
     
     // write the dev CSS to the file system.
     if ( isNode && !isBuild) {
-      if (!fs.existsSync(DEV_CSS_PATH)){
-          fs.mkdirSync(DEV_CSS_PATH);
-      }
       fs.writeFile(DEV_CSS_PATH + "/dev-css.css", result.text, function (err) {
         if (err) {
           console.log("Error writing DEV CSS file");

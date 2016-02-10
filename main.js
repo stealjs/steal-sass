@@ -2,18 +2,81 @@ var Sass = require ("$sass.js");
 var css = require("$css");
 var loader = require("@loader");
 var isNode = typeof process === "object" && {}.toString.call(process) === "[object process]";
+var isBuild = isNode && /build$/.test(process.argv[1]);
+
+var fs;
+var DEV_CSS_PATH = "src/css/dev";
+
+if (isNode) {
+  fs = loader._nodeRequire("fs");
+}
+
+// Create the directory where the compiles CSS will live in dev mode
+function createDir (parts, i) {
+  var path = parts.slice(0, ++i).join("/");
+  fs.mkdir(path, function (err) {
+    if (err && err.code !== "EEXIST") {
+      throw new Error(err);
+    }
+    if (i < parts.length) {
+      createDir(parts, i);
+    }
+  });
+}
+if (isNode && !isBuild) {
+  createDir(DEV_CSS_PATH.split("/").filter(Boolean), 0);
+}
 
 exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
 var META = {
+  ___has_compiled: false,
   ___concatenated_source: "",
   ___import_hash: {},
   ___load_stack: []
 };
 
-exports.translate = function(load){
-  return getSass(this).then(function(sass) {
+// If in the browser we don't find the <style> tag on the page, set
+// hasCompiled to true to ensure the styles get compiled on the first pass.
+if (!isNode) {
+  var links = document.head.querySelectorAll("link[rel=stylesheet]");
+  var found = false;
+  for (var i = 0; i < links.length; i++) {
+    if (link[i].href.indexOf(DEV_CSS_PATH) > -1) {
+     found = true;
+     break;
+    }
+  }
+  if (!found) {
+    META.___has_compiled = true;
+  }
+}
+
+// This file only runs in development mode. This is a very specific implementation to Levi's
+// and should considered both stable yet unconventional. The way in which we are compiling
+// SASS files is crucial to the workflow we implemented for Levi's, but it results in a 
+// preventatively long compile time in the browser. In order to mitigate this, we offload initial
+// SASS compiling to the server and provide a way for the browser to then piggyback on that 
+// compiled code. Here's the flow:
+//  1. During first page load compile on the server and write to a file in the file system
+//  2. <link> to the compiled CSS file from the app component.
+//    a. In browser (dev mode), the initial page load will use the compiled CSS.
+//    b. Individual SASS files are still loaded in the background. Any route changes will then 
+//       be compiled in the browser.
+//  3. After the build:
+//    a. Run a script to concatenate all compiled CSS files in the /dist folder
+//    b. Run another script to optimize the final CSS - remove duplicate selectors, etc.
+//    c. Make sure the final CSS file is <link>ed to in the app component - use versioning
+//    d. Flag the CSS bundles as loaded so that steal doesn't try to load them (see config/env.js)
+
+exports.translate = function(originalLoad) {
+  var load = {};
+  for (var prop in originalLoad) {
+    load[prop] = originalLoad[prop];
+  }
+
+  var loadPromise = getSass(this).then(function(sass) {
     console.log("======================", load.address, load.source.length);
 
     var promise;
@@ -28,18 +91,22 @@ exports.translate = function(load){
       promise = processUrl(load.address, load.source, load);
     }
 
-    // promise = promise.then(function () {
-    //   return new Promise(function(resolve) {
-    //     var delay = META.___load_stack.length === 1 ? 200 : 10;
-    //     setTimeout(resolve, delay);
-    //   });
-    // });
+    // A slight delay is needed to allow the stack to build up and
+    // minimize the number of compilations which take place.
+    promise = promise.then(function () {
+      return new Promise(function(resolve) {
+        setTimeout(resolve);
+      });
+    });
 
     META.___load_stack.unshift( promise );
     //META.___import_hash[load.address] = Promise.resolve();
-    
-    return promise.then(function () {
+
+    promise.then(function () {
       console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
+    });
+
+    return promise.then(function () {
       return sass;
     });
   }).then(function(sass){
@@ -47,18 +114,37 @@ exports.translate = function(load){
     
     META.___concatenated_source += load.source;
 
-    // If this is the last promise in the stack, then compile
-    if ( !META.___load_stack.length ) {
-      return new Promise(function(resolve){
-        promise.then(function () {
-          runCompile(sass, META.___concatenated_source, resolve,           load.address);
-        });
-      });
-    } else {
-      // Resolve the previous resolver - the last one is the only one that will resolve with content
+    // If there are still files in the stack, return early. We want to compile
+    // the entire stack all at once.
+    if (META.___load_stack.length) {
       return "";
     }
+
+    if ( !META.___has_compiled ) {
+      META.___has_compiled = true;
+
+      // If we are in the browser and this is the first compile attempt, just
+      // return because the app will reference the dev-css file generated 
+      // during SSR. The next time through we will compile things in the browser.
+      if ( !isNode ) {
+        return "";
+      }
+    }
+
+    return new Promise(function(resolve){
+      promise.then(function () {
+        runCompile(sass, META.___concatenated_source, resolve,           load.address);
+      });
+    });
   });
+
+  // On initial page load, returning early like this allows the page to load
+  // without waiting on the SASS files to load.
+  if ( !isNode && !META.___has_compiled ) {
+    return "";
+  }
+
+  return loadPromise;
 };
 
 function runCompile (sass, source, resolve, address) {
@@ -72,7 +158,22 @@ function runCompile (sass, source, resolve, address) {
       resolve("");
       return;
     }
-    // console.log("HAS REMOVE STATEMENT:", result.text.indexOf(REMOVE_START));
+    
+    // write the dev CSS to the file system.
+    if ( isNode && !isBuild) {
+      fs.writeFile(DEV_CSS_PATH + "/dev-css.css", result.text, function (err) {
+        if (err) {
+          console.log("Error writing DEV CSS file");
+          return resolve(result.text);
+        }
+        resolve(result.text);
+      });
+      return;
+    }
+
+    // This should only happen during build, in which case we let steal handle
+    // bundling and compiling the CSS to /dist. We will concatenate and optimize these
+    // files in another process - see Gruntfile.
     resolve(result.text);
   });
 }
@@ -181,6 +282,11 @@ function DO_IMPORT (file, importRegex, base, load) {
 
 var sassProcessor = isNode ? "sass.js/dist/sass.sync" : "sass.js/dist/sass.worker";
 var getSass = function (loader, newInstance) {
+  // On initial page load in the browser, there is no need to instantiate the sass compiler
+  if ( !isNode && !META.___has_compiled ) {
+    return Promise.resolve({});
+  }
+
   return loader.normalize(sassProcessor, "steal-sass").then(function(name){
     return loader.locate({ name: name });
   }).then(function (url) {

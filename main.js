@@ -41,9 +41,14 @@ var META = {
 //    c. Make sure the final CSS file is <link>ed to in the app component - use versioning
 //    d. Flag the CSS bundles as loaded so that steal doesn't try to load them.
 
-exports.translate = function(load) {
+exports.translate = function(originalLoad) {
+  var load = {};
+  for (var prop in originalLoad) {
+    load[prop] = originalLoad[prop];
+  }
+
   var loadPromise = getSass(this).then(function(sass) {
-    console.log("======================", load.address);
+    console.log("======================", load.address, load.source.length);
 
     var promise;
     var start;

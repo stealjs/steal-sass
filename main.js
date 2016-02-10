@@ -43,7 +43,7 @@ if (!isNode) {
   var links = document.head.querySelectorAll("link[rel=stylesheet]");
   var found = false;
   for (var i = 0; i < links.length; i++) {
-    if (link[i].href.indexOf(DEV_CSS_PATH) > -1) {
+    if (links[i].href.indexOf(DEV_CSS_PATH) > -1) {
      found = true;
      break;
     }

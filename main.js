@@ -27,19 +27,16 @@ var META = {
 // preventatively long compile time in the browser. In order to mitigate this, we offload initial
 // SASS compiling to the server and provide a way for the browser to then piggyback on that 
 // compiled code. Here's the flow:
-//  1. Only compile on the server and write to a file in the file system
-//    a. In non-build mode, write both the uncompiled code and compiled code to a file
-//    b. In build mode, let steal bundle the css and write the files to the /dist folder. This
-//       will result in duplicate styles - we will fix this later (see below).
-//  2. <link> to the compiled CSS file from the app component - this will serve the initial page load
-//    a. In browser (dev mode), load the uncompiled file so that subsequent routes can be compiled
-//       Ex. Moving from cart to checkout will load additional SASS files. Those files must be 
-//          concatenated onto the end of the file produced on the server and then compiled in the browser.
+//  1. During first page load compile on the server and write to a file in the file system
+//  2. <link> to the compiled CSS file from the app component.
+//    a. In browser (dev mode), the initial page load will use the compiled CSS.
+//    b. Individual SASS files are still loaded in the background. Any route changes will then 
+//       be compiled in the browser.
 //  3. After the build:
 //    a. Run a script to concatenate all compiled CSS files in the /dist folder
 //    b. Run another script to optimize the final CSS - remove duplicate selectors, etc.
 //    c. Make sure the final CSS file is <link>ed to in the app component - use versioning
-//    d. Flag the CSS bundles as loaded so that steal doesn't try to load them.
+//    d. Flag the CSS bundles as loaded so that steal doesn't try to load them (see config/env.js)
 
 exports.translate = function(originalLoad) {
   var load = {};

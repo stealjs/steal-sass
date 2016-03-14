@@ -6,7 +6,7 @@ var isBuild = isNode && /build$/.test(process.argv[1]);
 
 var fs;
 var DEV_CSS_PATH = "src/css/dev";
-var BUILD_CSS_PATH = "src/css/dev";
+var BUILD_CSS_PATH = "src/css/build";
 
 if (isNode) {
   fs = loader._nodeRequire("fs");

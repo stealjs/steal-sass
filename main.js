@@ -6,6 +6,7 @@ var isBuild = isNode && /build$/.test(process.argv[1]);
 
 var fs;
 var DEV_CSS_PATH = "src/css/dev";
+var BUILD_CSS_PATH = "src/css/dev";
 
 if (isNode) {
   fs = loader._nodeRequire("fs");
@@ -13,6 +14,10 @@ if (isNode) {
 
 // Create the directory where the compiles CSS will live in dev mode
 function createDir (parts, i) {
+  i = i || 0;
+  if (typeof parts === "string") {
+    parts = parts.split("/").filter(Boolean);
+  }
   var path = parts.slice(0, ++i).join("/");
   fs.mkdir(path, function (err) {
     if (err && err.code !== "EEXIST") {
@@ -24,7 +29,10 @@ function createDir (parts, i) {
   });
 }
 if (isNode && !isBuild) {
-  createDir(DEV_CSS_PATH.split("/").filter(Boolean), 0);
+  createDir(DEV_CSS_PATH);
+}
+if (isBuild) {
+  createDir(BUILD_CSS_PATH);
 }
 
 exports.instantiate = css.instantiate;
@@ -100,13 +108,20 @@ exports.translate = function(originalLoad) {
     });
 
     META.___load_stack.unshift( promise );
-    //META.___import_hash[load.address] = Promise.resolve();
+    META.___import_hash[load.address] = promise;
 
     promise.then(function () {
       console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
     });
 
     return promise.then(function () {
+      if (promise === META.___load_stack[0]) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            resolve(sass);
+          }, 200);
+        })
+      }
       return sass;
     });
   }).then(function(sass){
@@ -154,7 +169,6 @@ function runCompile (sass, source, resolve, address) {
     console.log("It took", (Date.now() - start), "ms to compile: ", address);
     if (result.status > 0) {
       console.error("STEAL-SASS ERROR", result.status, "-", result.message);
-      console.log(source);
       resolve("");
       return;
     }
@@ -164,9 +178,19 @@ function runCompile (sass, source, resolve, address) {
       fs.writeFile(DEV_CSS_PATH + "/dev-css.css", result.text, function (err) {
         if (err) {
           console.log("Error writing DEV CSS file");
-          return resolve(result.text);
         }
         resolve(result.text);
+      });
+      return;
+    }
+
+    // write the dev CSS to the file system.
+    if (isBuild && result.text) {
+      fs.writeFile(BUILD_CSS_PATH + "/" + Math.round(Math.random() * 99999999) + ".css", result.text, function (err) {
+        if (err) {
+          console.log("Error writing BUILD CSS file");
+        }
+        resolve("");
       });
       return;
     }

@@ -15,7 +15,7 @@
   "author": "Bitovi",
   "license": "MIT",
   "dependencies": {
-    "sass.js": "^0.9.4"
+    "sass.js": "=0.9.8"
   },
   "bugs": {
     "url": "https://github.com/stealjs/steal-sass/issues"

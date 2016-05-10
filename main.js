@@ -39,7 +39,6 @@ exports.instantiate = css.instantiate;
 exports.buildType = "css";
 
 var META = {
-  ___has_compiled: false,
   ___concatenated_source: "",
   ___import_hash: {},
   ___load_stack: []
@@ -57,7 +56,7 @@ if (!isNode) {
     }
   }
   if (!found) {
-    META.___has_compiled = true;
+    window.SASS_CACHE = {};
   }
 }
 
@@ -83,6 +82,9 @@ exports.translate = function(originalLoad) {
   for (var prop in originalLoad) {
     load[prop] = originalLoad[prop];
   }
+
+  // strip the domain from the address
+  var loadPath = load.address.replace(/^https?:\/\/[^\/]+\//, '');
 
   var loadPromise = getSass(this).then(function(sass) {
     console.log("======================", load.address, load.source.length);
@@ -135,15 +137,9 @@ exports.translate = function(originalLoad) {
       return "";
     }
 
-    if ( !META.___has_compiled ) {
-      META.___has_compiled = true;
-
-      // If we are in the browser and this is the first compile attempt, just
-      // return because the app will reference the dev-css file generated 
-      // during SSR. The next time through we will compile things in the browser.
-      if ( !isNode ) {
-        return "";
-      }
+    // On first page load, the sass object is an empty object - so don't try to compile
+    if (!isNode && !sass.compile) {
+      return "";
     }
 
     return new Promise(function(resolve){
@@ -155,7 +151,8 @@ exports.translate = function(originalLoad) {
 
   // On initial page load, returning early like this allows the page to load
   // without waiting on the SASS files to load.
-  if ( !isNode && !META.___has_compiled ) {
+  if ( !isNode && SASS_CACHE.hasOwnProperty(loadPath) ) {
+    delete SASS_CACHE[loadPath];
     return "";
   }
 
@@ -164,22 +161,34 @@ exports.translate = function(originalLoad) {
 
 function runCompile (sass, source, resolve, address) {
   var start = Date.now();
+  var compilerMethod = isNode ? sass.render : sass.compile;
+  var payload = isNode ? { data: source } : source;
+
   console.log("COMPILING (", source.length, ")", address);
-  sass.compile(source, function(result){
+  compilerMethod(payload, function(err, result){
+    if (arguments.length === 1 && typeof err === "string") {
+      result = err;
+      err = null;
+    }
+
+    if (result  && result.status > 0) {
+      err = result;
+    }
+
     console.log("It took", (Date.now() - start), "ms to compile: ", address);
-    if (result.status > 0) {
-      console.error("STEAL-SASS ERROR", result.status, "-", result.message);
+    if (err) {
+      console.error("STEAL-SASS ERROR", err.status, "-", err.message);
       resolve("");
       return;
     }
     
     // write the dev CSS to the file system.
     if ( isNode && !isBuild) {
-      fs.writeFile(DEV_CSS_PATH + "/dev-css.css", result.text, function (err) {
+      fs.writeFile(DEV_CSS_PATH + "/dev-css.css", result.css, function (err) {
         if (err) {
           console.log("Error writing DEV CSS file");
         }
-        resolve(result.text);
+        resolve(result.css);
       });
       return;
     }
@@ -304,10 +313,11 @@ function DO_IMPORT (file, importRegex, base, load) {
   return META.___import_hash[importKey];
 };
 
-var sassProcessor = isNode ? "sass.js/dist/sass.sync" : "sass.js/dist/sass.worker";
+// var sassProcessor = isNode ? "sass.js/dist/sass.sync" : "sass.js/dist/sass.worker";
+var sassProcessor = isNode ? "node-sass" : "sass.js/dist/sass.worker";
 var getSass = function (loader, newInstance) {
   // On initial page load in the browser, there is no need to instantiate the sass compiler
-  if ( !isNode && !META.___has_compiled ) {
+  if (!isNode && Object.keys(SASS_CACHE).length) {
     return Promise.resolve({});
   }
 

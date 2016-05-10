@@ -15,6 +15,7 @@
   "author": "Bitovi",
   "license": "MIT",
   "dependencies": {
+    "node-sass": "^3.7.0",
     "sass.js": "0.9.8"
   },
   "bugs": {

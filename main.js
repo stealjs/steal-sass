@@ -41,7 +41,8 @@ exports.buildType = "css";
 var META = {
   ___concatenated_source: "",
   ___import_hash: {},
-  ___load_stack: []
+  ___load_stack: [],
+  ___is_importing: false
 };
 
 // If in the browser we don't find the <style> tag on the page, set
@@ -120,6 +121,7 @@ exports.translate = function(originalLoad) {
       if (promise === META.___load_stack[0]) {
         return new Promise(function (resolve) {
           setTimeout(function () {
+            META.___using_sass = null;
             resolve(sass);
           }, 200);
         })
@@ -166,13 +168,12 @@ function runCompile (sass, source, resolve, address) {
 
   console.log("COMPILING (", source.length, ")", address);
   compilerMethod(payload, function(err, result){
-    if (arguments.length === 1 && typeof err === "string") {
+    // The browser compiler only sends one parameter, so normalize it here
+    if (!isNode) {
       result = err;
-      err = null;
-    }
-
-    if (result  && result.status > 0) {
-      err = result;
+      if (result.status === 0) {
+        err = null;
+      }
     }
 
     console.log("It took", (Date.now() - start), "ms to compile: ", address);
@@ -333,7 +334,11 @@ var getSass = function (loader, newInstance) {
       sass = loader._nodeRequire(url);
       global.window = oldWindow;
     } else {
-      sass = new Sass(url);
+      if (META.___using_sass) {
+        sass = META.___using_sass;
+      } else {
+        sass = META.___using_sass = new Sass(url);
+      }
     }
     return sass;
   });

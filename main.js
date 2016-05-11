@@ -195,8 +195,8 @@ function runCompile (sass, source, resolve, address) {
     }
 
     // write the dev CSS to the file system.
-    if (isBuild && result.text) {
-      fs.writeFile(BUILD_CSS_PATH + "/" + Math.round(Math.random() * 99999999) + ".css", result.text, function (err) {
+    if (isBuild && result.css) {
+      fs.writeFile(BUILD_CSS_PATH + "/" + Math.round(Math.random() * 99999999) + ".css", result.css, function (err) {
         if (err) {
           console.log("Error writing BUILD CSS file");
         }

@@ -26,7 +26,7 @@
       "scss": "steal-sass"
     },
     "map": {
-      "$sass.js": "sass.js/dist/sass"
+      "$sass.js": "steal-sass/browsersass"
     },
     "npmIgnore": [
       "testee",
@@ -36,9 +36,9 @@
   "devDependencies": {
     "funcunit": "^3.0.0",
     "mocha": "^2.3.4",
-    "steal": "^0.12.0",
+    "steal": "^0.16.0",
     "steal-qunit": "^0.1.1",
-    "steal-tools": "^0.12.2",
+    "steal-tools": "^0.16.0",
     "testee": "^0.2.2"
   },
   "homepage": "https://github.com/stealjs/steal-sass"

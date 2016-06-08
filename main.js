@@ -322,7 +322,7 @@ var getSass = function (loader, newInstance) {
     return Promise.resolve({});
   }
 
-  return loader.normalize(sassProcessor, "steal-sass").then(function(name){
+  return loader.normalize(sassProcessor, module.id).then(function(name){
     return loader.locate({ name: name });
   }).then(function (url) {
     var sass;

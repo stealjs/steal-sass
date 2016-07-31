@@ -2,7 +2,6 @@
   "name": "steal-sass",
   "version": "1.0.3",
   "description": "",
-  "main": "main.js",
   "scripts": {
     "test:browser": "testee test/test.html --browsers firefox --reporter Spec",
     "test:node": "mocha test/node_test.js",
@@ -15,51 +14,30 @@
   "author": "Bitovi",
   "license": "MIT",
   "dependencies": {
-    "sass.js": "^0.9.4"
+    "sass.js": "^0.9.11",
+    "node-sass": "^3.8.0"
   },
   "bugs": {
     "url": "https://github.com/stealjs/steal-sass/issues"
   },
   "system": {
+    "main": "index",
+    "directories": {
+      "lib": "src"
+    },
     "ext": {
       "scss": "steal-sass"
     },
-    "map": {
-      "$sass.js": "steal-sass/browsersass"
-    },
-    "envs": {
-      "build": {
-        "map": {
-          "$sass.js": "steal-sass/nodesass"
-        }
-      },
-      "build-development": {
-        "map": {
-          "$sass.js": "steal-sass/nodesass"
-        }
-      },
-      "server-development": {
-        "map": {
-          "$sass.js": "steal-sass/nodesass"
-        }
-      },
-      "server-production": {
-        "map": {
-          "$sass.js": "steal-sass/nodesass"
-        }
-      }
-    },
     "npmIgnore": [
-      "testee",
-      "mocha"
+      "devDependencies"
     ]
   },
   "devDependencies": {
     "funcunit": "^3.0.0",
     "mocha": "^2.3.4",
-    "steal": "^0.16.0",
+    "steal": "^1.0.0-beta.3",
     "steal-qunit": "^0.1.1",
-    "steal-tools": "^0.16.0",
+    "steal-tools": "^1.0.0-beta.2",
     "testee": "^0.2.2"
   },
   "homepage": "https://github.com/stealjs/steal-sass"

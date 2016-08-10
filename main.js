@@ -1,3 +1,4 @@
+var debug = require('debug')('steal:sass'); // to see these logs, start the app like so: DEBUG=steal:sass donejs develop
 var Sass = require ("$sass.js");
 var css = require("$css");
 var loader = require("@loader");
@@ -88,7 +89,7 @@ exports.translate = function(originalLoad) {
   var loadPath = load.address.replace(/^https?:\/\/[^\/]+\//, '');
 
   var loadPromise = getSass(this).then(function(sass) {
-    console.log("======================", load.address, load.source.length);
+    debug('======================', load.address, load.source.length);
 
     var promise;
     var start;
@@ -114,7 +115,7 @@ exports.translate = function(originalLoad) {
     META.___import_hash[load.address] = promise;
 
     promise.then(function () {
-      console.log("It took", (Date.now() - start), "ms to import (", load.source.indexOf("@import"), "occurances of @import)", load.address);
+      debug('It took', (Date.now() - start), 'ms to import (', load.source.indexOf('@import'), 'occurances of @import)', load.address);
     });
 
     return promise.then(function () {
@@ -166,7 +167,7 @@ function runCompile (sass, source, resolve, address) {
   var compilerMethod = isNode ? sass.render : sass.compile;
   var payload = isNode ? { data: source } : source;
 
-  console.log("COMPILING (", source.length, ")", address);
+  debug('COMPILING (', source.length, ')', address);
   compilerMethod(payload, function(err, result){
     // The browser compiler only sends one parameter, so normalize it here
     if (!isNode) {
@@ -176,7 +177,7 @@ function runCompile (sass, source, resolve, address) {
       }
     }
 
-    console.log("It took", (Date.now() - start), "ms to compile: ", address);
+    debug('It took', (Date.now() - start), 'ms to compile: ', address);
     if (err) {
       console.error("STEAL-SASS ERROR", err.status, "-", err.message);
       resolve("");
@@ -187,7 +188,7 @@ function runCompile (sass, source, resolve, address) {
     if ( isNode && !isBuild) {
       fs.writeFile(DEV_CSS_PATH + "/dev-css.css", result.css, function (err) {
         if (err) {
-          console.log("Error writing DEV CSS file");
+          console.error('Error writing DEV CSS file');
         }
         resolve(result.css);
       });
@@ -198,7 +199,7 @@ function runCompile (sass, source, resolve, address) {
     if (isBuild && result.css) {
       fs.writeFile(BUILD_CSS_PATH + "/" + Math.round(Math.random() * 99999999) + ".css", result.css, function (err) {
         if (err) {
-          console.log("Error writing BUILD CSS file");
+          console.error('Error writing BUILD CSS file');
         }
         resolve("");
       });

@@ -26,27 +26,27 @@
     },
     "plugins": ["steal-css"],
     "map": {
-      "sass.js": "steal-sass/browsersass"
+      "$sass": "steal-sass/browsersass"
     },
     "envs": {
       "build": {
         "map": {
-          "sass.js": "steal-sass/nodesass"
+          "$sass": "steal-sass/nodesass"
         }
       },
       "build-development": {
         "map": {
-          "sass.js": "steal-sass/nodesass"
+          "$sass": "steal-sass/nodesass"
         }
       },
       "server-development": {
         "map": {
-          "sass.js": "steal-sass/nodesass"
+          "$sass": "steal-sass/nodesass"
         }
       },
       "server-production": {
         "map": {
-          "sass.js": "steal-sass/nodesass"
+          "$sass": "steal-sass/nodesass"
         }
       }
     },

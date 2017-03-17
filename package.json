@@ -20,7 +20,7 @@
   "bugs": {
     "url": "https://github.com/stealjs/steal-sass/issues"
   },
-  "steal": {
+  "system": {
     "ext": {
       "scss": "steal-sass"
     },

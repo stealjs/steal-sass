@@ -1,24 +1,3 @@
-[![Build Status](https://travis-ci.org/stealjs/steal-sass.svg?branch=master)](https://travis-ci.org/stealjs/steal-sass)
-[![npm version](https://badge.fury.io/js/steal-sass.svg)](http://badge.fury.io/js/steal-sass)
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 
-# steal-sass
-
-A Steal plugin for Sass.
-
-## Install
-
-```
-npm install steal-sass --save
-```
-
-## Use
-
-After you've installed you can just start using the plugin directly.
-
-```js
-import from 'styles.scss!';
-```
-
-## License
-
-MIT
+This project is no longer maintained. However, if you are interested in taking over maintenance we'd love the help! Please add an issue expressing your interest and more than likely no one will object.

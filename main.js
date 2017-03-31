@@ -1,4 +1,4 @@
-var Sass = require ("$sass.js");
+var Sass = require ("$sass");
 var css = require("$css");
 var loader = require("@loader");
 var isNode = typeof process === "object" && {}.toString.call(process) ===

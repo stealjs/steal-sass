@@ -60,7 +60,7 @@ var getSass = (function(){
   return function(loader){
     var np = Promise.resolve(loader.normalize("sass.js/dist/sass.worker", "steal-sass"));
     return np.then(function(name){
-      return Promise.resolve(loader.locate({ name: name }));
+      return Promise.resolve(loader.locate({ name: name, metadata: {} }));
     }).then(function(url){
       var sass = new Sass(url);
       getSass = function() { return Promise.resolve(sass); };

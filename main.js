@@ -9,6 +9,7 @@ exports.buildType = "css";
 
 exports.translate = function(load){
   var base = dir(load.address);
+  load.source = fixRelativeImports(base, load.source);
   var imports = getImports(load.source);
 
   return getSass(this).then(function(sass){
@@ -17,9 +18,12 @@ exports.translate = function(load){
     }
     return sass;
   }).then(function(sass){
-    return new Promise(function(resolve){
+    return new Promise(function(resolve, reject){
       sass.compile(load.source, function(result){
-        resolve(result.text);
+        if (result.status === 0 ) {
+          return resolve(result.text);
+        }
+        reject(result.formatted);
       })
     });
   });
@@ -29,6 +33,12 @@ function dir(path){
   var parts = path.split("/");
   parts.pop();
   return parts.join("/");
+}
+
+function fixRelativeImports(base, sass) {
+  var depth = base.split('/').length - 3;
+  var modulesPath = Array(depth).fill('..').join('/') + '/node_modules/';
+  return sass.replace(/(?<=@import ['"])~[/]?/gm, modulesPath);
 }
 
 var importExp = /@import.+?"(.+?)"/g;
@@ -60,7 +70,7 @@ var getSass = (function(){
   return function(loader){
     var np = Promise.resolve(loader.normalize("sass.js/dist/sass.worker", "steal-sass"));
     return np.then(function(name){
-      return Promise.resolve(loader.locate({ name: name }));
+      return Promise.resolve(loader.locate({ name: name, metadata: {} }));
     }).then(function(url){
       var sass = new Sass(url);
       getSass = function() { return Promise.resolve(sass); };

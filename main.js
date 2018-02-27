@@ -1,3 +1,4 @@
+/* global Sass */
 var css = require('$css')
 var isNode = (typeof process === 'object' &&
   {}.toString.call(process) === '[object process]')

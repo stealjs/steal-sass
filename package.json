@@ -15,10 +15,6 @@
   "author": "Bitovi",
   "license": "MIT",
   "dependencies": {
-    "steal": "^1.3.1",
-    "steal-css": "^1.2.1",
-    "steal-qunit": "^1.0.1",
-    "steal-tools": "^1.2.0",
     "sass.js": "^0.10.9"
   },
   "bugs": {
@@ -37,6 +33,10 @@
     ]
   },
   "devDependencies": {
+    "steal": "^1.3.1",
+    "steal-css": "^1.2.1",
+    "steal-qunit": "^1.0.1",
+    "steal-tools": "^1.2.0",
     "funcunit": "^3.0.0",
     "mocha": "^2.3.4",
     "testee": "^0.7.0"

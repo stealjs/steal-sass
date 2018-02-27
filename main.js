@@ -1,70 +1,67 @@
-var Sass = require ("$sass");
-var css = require("$css");
-var loader = require("@loader");
-var isNode = typeof process === "object" && {}.toString.call(process) ===
-    "[object process]";
+var css = require('$css')
+var isNode = (typeof process === 'object' &&
+  {}.toString.call(process) === '[object process]')
+var getSass
 
-exports.instantiate = css.instantiate;
-exports.buildType = "css";
+exports.instantiate = css.instantiate
+exports.buildType = 'css'
 
-exports.translate = function(load){
-  var base = dir(load.address);
-  var imports = getImports(load.source);
+exports.translate = function (load) {
+  var base = dir(load.address)
+  var imports = getImports(load.source)
+  var loader = this
+  var sassLocation
+  if (isNode) {
+    // if we are on npm2 and we build your app with steal-tools, we are currently not in the
+    // steal-sass directory.
+    // we have to set the fully qualified path to the module
+    sassLocation = __dirname + '/node_modules/' + 'sass.js/dist/sass.sync.js'
 
-  return getSass(this).then(function(sass){
-    if(!isNode) {
-      return preload(sass, base, imports);
-    }
-    return sass;
-  }).then(function(sass){
-    return new Promise(function(resolve){
-      sass.compile(load.source, function(result){
-        resolve(result.text);
-      })
-    });
-  });
-};
+    try {
+      // try to resolve the sass module on npm3
+      sassLocation = loader._nodeRequire.resolve('sass.js/dist/sass.sync.js')
+    } catch (e) {}
 
-function dir(path){
-  var parts = path.split("/");
-  parts.pop();
-  return parts.join("/");
-}
-
-var importExp = /@import.+?"(.+?)"/g;
-function getImports(source){
-  var imports = [];
-  source.replace(importExp, function(whole, imp){
-    imports.push(imp);
-  });
-  return imports;
-}
-
-function preload(sass, base, files){
-  if(!files.length) return Promise.resolve(sass);
-
-  return new Promise(function(resolve){
-    sass.preloadFiles(base, "", files, function(){
-      resolve(sass);
-    });
-  });
-}
-
-var getSass = (function(){
-  if(isNode) {
-    return function(loader){
-      return Promise.resolve(Sass);
-    };
+    getSass = Promise.resolve(loader._nodeRequire(sassLocation))
+      .then((module) => module)
+  } else {
+    // require("sass.js/dist/sass")
+    sassLocation = loader.normalize('sass.js/dist/sass.worker', 'steal-sass')
+    getSass = Promise.resolve(sassLocation)
+      .then((name) => loader.locate({ name: name }))
+      .then((url) => new Sass(url))
+      .then((sass) => preload(sass, base, imports))
   }
 
-  return function(loader){
-    var np = Promise.resolve(loader.normalize("sass.js/dist/sass.worker", "steal-sass"));
-    return np.then(function(name){
-      return Promise.resolve(loader.locate({ name: name }));
-    }).then(function(url){
-      var sass = new Sass(url);
-      getSass = function() { return Promise.resolve(sass); };
-      return sass;
-    });
-  };
-})();
+  getSass.then(function (sass) {
+    return new Promise(function (resolve) {
+      sass.compile(load.source, function (result) {
+        resolve(result.text)
+      })
+    })
+  })
+}
+
+function dir (path) {
+  var parts = path.split('/')
+  parts.pop()
+  return parts.join('/')
+}
+
+function getImports (source) {
+  var imports = []
+  var importExp = /@import.+?"(.+?)"/g
+  source.replace(importExp, function (whole, imp) {
+    imports.push(imp)
+  })
+  return imports
+}
+
+function preload (sass, base, files) {
+  if (!files.length) {
+    return Promise.resolve(sass)
+  }
+  return new Promise((resolve) => {
+    sass.preloadFiles(base, '', files, () => resolve(sass))
+  })
+}

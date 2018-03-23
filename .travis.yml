@@ -1,6 +1,9 @@
 language: node_js
-node_js: 9.5
+node_js: [9, 8, 7, 6]
 script: npm test
 before_install:
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
+cache:
+  directories:
+  - "$HOME/.npm"

@@ -32,13 +32,17 @@
       "mocha"
     ]
   },
+  "peerDependencies": {
+    "steal": "1.x",
+    "steal-css": "1.x"
+  },
   "devDependencies": {
-    "steal": "^1.3.1",
-    "steal-css": "^1.2.1",
+    "steal": "^1.11.0",
+    "steal-css": "^1.3.2",
     "steal-qunit": "^1.0.1",
-    "steal-tools": "^1.2.0",
-    "funcunit": "^3.0.0",
-    "mocha": "^2.3.4",
+    "steal-tools": "^1.11.7",
+    "funcunit": "^3.5.0",
+    "mocha": "^5.0.5",
     "testee": "^0.7.0"
   },
   "homepage": "https://github.com/stealjs/steal-sass"

@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/stealjs/steal-sass.svg?branch=master)](https://travis-ci.org/stealjs/steal-sass)
-[![npm version](https://badge.fury.io/js/steal-sass.svg)](http://badge.fury.io/js/steal-sass)
+[![npm version](https://badge.fury.io/js/steal-sass.svg)](http://badge.fury.io/js/steal-sass) [![Greenkeeper badge](https://badges.greenkeeper.io/stealjs/steal-sass.svg)](https://greenkeeper.io/)
 
 # steal-sass
 
